@@ -1,0 +1,69 @@
+---
+title: "Day One"
+author: "Thomas Pinder"
+date: "18/10/2020"
+output:
+  html_document:
+    toc: true
+    number_sections: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(ggmap)
+library(osmdata)
+library(ggpointdensity)
+```
+
+# Points
+
+## Data preparation
+
+I'll be using a kaggle dataset for day one's task of plotting points on a map. Data can be obtained [here](https://www.kaggle.com/dgomonov/new-york-city-airbnb-open-data).
+
+```{r}
+nyc_airbnb <- read_csv(here("data/AB_NYC_2019.csv"))
+glimpse(nyc_airbnb)
+```
+We only need coordinate pairs here, so we'll go ahead and extract them from the data. We'll remove any listings that are never available or those that have never been reviewed. We'll also remove any duplicates as they won't add anything to a simple points plot.
+
+```{r}
+nyc_all <- nyc_airbnb %>% 
+  filter(availability_365 > 0 & reviews_per_month>0) %>% 
+  distinct() %>% 
+  select(c(latitude, longitude, price))
+
+topn <- nyc_all %>% 
+  top_n(n = 200, wt=price) %>% 
+  mutate(price_bracket = 'Expensive')
+bottomn <- nyc_all %>% 
+  top_n(n = 200, wt=-price) %>% 
+  mutate(price_bracket = 'Budget')
+nyc_points <- bind_rows(topn, bottomn) %>% 
+  mutate(price_bracket = as_factor(price_bracket))
+
+summary(nyc_points)
+```
+
+All the values here look reasonable so we'll go ahead and make our plot.
+
+## Plot
+
+```{r}
+us <- c(left = -74.3, bottom = 40.4, right = -73.6, top = 41)
+nyc_map <- get_stamenmap(us, zoom = 9, maptype = "toner-lite", color = 'color')
+
+ggmap(nyc_map)+
+  geom_point(data=nyc_points, aes(longitude, latitude, color=price_bracket), size = 1.0, 
+             stroke=1.2) +
+  scale_color_viridis_d() +
+  facet_wrap(~price_bracket) +
+  labs(color="Price Bracket")+
+  theme_void()
+```

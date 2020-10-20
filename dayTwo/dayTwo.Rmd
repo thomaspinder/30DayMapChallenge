@@ -1,0 +1,56 @@
+---
+title: "Day Two"
+author: "Thomas Pinder"
+date: "19/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggmap)
+library(osmdata)
+library(sp)
+```
+
+# Data
+
+We'll get some OSM data from London
+
+```{r, cache=TRUE}
+london_cycleways <- getbb("London") %>% 
+  opq() %>% 
+  add_osm_feature(key = 'highway', value = 'cycleway') %>% 
+  osmdata_sp()
+
+london_rivers <- getbb("London") %>% 
+  opq() %>% 
+  add_osm_feature(key = "waterway", value = "river") %>%
+  osmdata_sp() 
+
+london_roads <- getbb("London") %>% 
+  opq() %>% 
+  add_osm_feature(key = "highway", value = c("motorway", "primary",
+                                             "secondary", "tertiary")) %>%
+  osmdata_sp() 
+```
+```{r, cache=TRUE}
+cyclways <- fortify(london_cycleways$osm_lines)
+roads <- fortify(london_roads$osm_lines)
+rivers <- fortify(london_rivers$osm_lines)
+```
+
+## Plot
+
+```{r}
+p1 <- ggplot(data=cyclways) +
+  geom_path(data = roads, aes(x = long, y=lat, group=group), color="#C2D3CD", alpha=0.4, size=0.2) +
+  geom_path(aes(x = long, y=lat, group=group), color="#2ADB5C", size=0.6, alpha=0.6) +
+  coord_sf()+
+  theme_void() +
+  theme(plot.background = element_rect(fill = "#282828"), 
+        plot.margin = margin(0, 30, 0, 30))
+p1
+```
+
+
