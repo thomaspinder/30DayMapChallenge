@@ -1,0 +1,64 @@
+---
+title: 'Day 3: Polygons'
+author: "Thomas Pinder"
+date: "26/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(sp)
+library(osmdata)
+library(lubridate)
+library(mapproj)
+library(here)
+library(broom)
+library(readxl)
+library(rgdal)
+library(maptools)
+gpclibPermit()
+```
+
+
+## Data
+
+I'll be using UK election data that can be obtained from the [UK commons library here](https://commonslibrary.parliament.uk/research-briefings/cbp-8647/).
+
+```{r, message=FALSE, results=FALSE}
+election_data <- read_excel(here("/dayThree/data/uk_elections.xlsx"), skip=3, sheet="2019") %>%
+  filter(!is.na(Country))
+names(election_data) <- gsub(" ", "_", names(election_data))
+election_data <- election_data %>% 
+  select(c(ONS_id, Labour__Vote_share, Conservative_Party__Vote_share, Total_votes, Turnout))
+```
+In some regions of the UK, such as Belfast east (ID N06000001), there were no labour or conservative delegates up for election. For this reason, the relevant vote count columns have data points have been recorded as `NA`. When we aggregate the data further down the line, these `NA` values will become problematic. To mitigate this, we can recode the `NA` values as 0.
+
+```{r}
+election_data$Labour__Vote_share[is.na(election_data$Labour__Vote_share)]<-0
+election_data$Conservative_Party__Vote_share[is.na(election_data$Conservative_Party__Vote_share)]<-0
+```
+
+
+### Boundary files
+
+[here](https://geoportal.statistics.gov.uk/datasets/4c191bee309d4b2d8b2c5b94d2512af9_0)
+
+```{r, results=FALSE, message=FALSE, warning=FALSE}
+uk <- readOGR('data/uk_boundary/Westminster_Parliamentary_Constituencies__December_2019__Boundaries_UK_BUC.shp')
+
+uk_df <- tidy(uk, region = 'pcon19cd') %>% 
+  left_join(election_data, by=c("id"="ONS_id"))
+```
+
+```{r}
+ggplot() +
+  geom_polygon(data=uk_df, aes(fill=Conservative_Party__Vote_share, x = long, y=lat, group=group)) +
+  theme_void()
+```
+
+
+It's pretty rough and ready, but it's a good first draft of what we'd like to plot. That being said, it is far from perfect. Some of the labelling, particularly on the legend is messy or absent. Further, the colours are fine, but they do not pop right now so it would be nice to try and make the plot appear more visually pleasing.
+
+### Cleaning up
+
